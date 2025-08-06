@@ -32,6 +32,9 @@ const JournalEntry = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordModalConfig, setPasswordModalConfig] = useState({});
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [editPassword, setEditPassword] = useState('');
+  const [editUnlockError, setEditUnlockError] = useState('');
+  const [editUnlocked, setEditUnlocked] = useState(false);
 
   const {
     register,
@@ -137,93 +140,138 @@ const JournalEntry = () => {
     });
   };
 
-  // Create/Update journal mutation
-  const journalMutation = useMutation(
-    async (data) => {
-      const formData = new FormData();
-      
-      // Add text fields
-      Object.keys(data).forEach(key => {
-        if (data[key] !== undefined && data[key] !== '') {
-          formData.append(key, data[key]);
-        }
-      });
+  // We've moved the mutation logic directly into the onSubmit function
 
-      // Add encryption settings
-      formData.append('isEncrypted', isEncrypted);
-      if (isEncrypted && encryptionPassword) {
-        formData.append('encryptionPassword', encryptionPassword);
-      }
-      
-      // Add current password for editing encrypted journals
-      if (id && journalData?.isEncrypted) {
-        // This will be handled by the onSubmit function with password modal
-        return new Promise((resolve, reject) => {
-          setPasswordModalConfig({
-            title: "Verify Current Password",
-            description: "Enter the current password to edit this encrypted journal.",
-            onSubmit: async (currentPassword) => {
-              try {
-                setIsVerifyingPassword(true);
-                formData.append('currentPassword', currentPassword);
-                const response = await api[method](url, formData, {
-                  headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                setShowPasswordModal(false);
-                resolve(response.data);
-              } catch (err) {
-                if (err.response?.status === 401) {
-                  toast.error('Invalid current password');
-                } else {
-                  reject(err);
-                }
-              } finally {
-                setIsVerifyingPassword(false);
-              }
+  // If editing a protected journal, require password before showing form
+  if (id && journalData?.isEncrypted && !editUnlocked) {
+    return (
+      <div className="journal-protected-fallback">
+        <div style={{textAlign: 'center', marginTop: '4rem'}}>
+          <Lock size={48} style={{marginBottom: 16}}/>
+          <h2>This journal is password protected.</h2>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setIsVerifyingPassword(true);
+            setEditUnlockError('');
+            try {
+              const response = await api.get(`/journal/${id}?password=${encodeURIComponent(editPassword)}`);
+              queryClient.setQueryData(['journal', id], response.data.journal);
+              setEditUnlocked(true);
+              setEditPassword('');
+            } catch (error) {
+              setEditUnlockError('Invalid password. Please try again.');
+            } finally {
+              setIsVerifyingPassword(false);
             }
-          });
-          setShowPasswordModal(true);
-        });
-      }
+          }} style={{maxWidth: 320, margin: '2rem auto'}}>
+            <input
+              type="password"
+              value={editPassword}
+              onChange={e => setEditPassword(e.target.value)}
+              placeholder="Enter password"
+              style={{width: '100%', padding: '0.75em', fontSize: '1.1em', marginBottom: 8}}
+              disabled={isVerifyingPassword}
+              required
+            />
+            <button type="submit" className="btn btn-primary" disabled={isVerifyingPassword} style={{width: '100%'}}>
+              {isVerifyingPassword ? 'Unlocking...' : 'Unlock'}
+            </button>
+            {editUnlockError && <div style={{color: 'red', marginTop: 8}}>{editUnlockError}</div>}
+          </form>
+        </div>
+      </div>
+    );
+  }
 
-      // Add files
-      uploadedFiles.forEach((fileObj, index) => {
-        formData.append('media', fileObj.file);
-      });
-
-      const url = id ? `/journal/${id}` : '/journal';
-      const method = id ? 'put' : 'post';
-      
-      const response = await api[method](url, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      return response.data;
-    },
-    {
-      onSuccess: (data) => {
-        toast.success(id ? 'Journal updated successfully!' : 'Journal created successfully!');
-        queryClient.invalidateQueries(['journals']);
-        queryClient.invalidateQueries(['journalStats']);
-        navigate('/journal');
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to save journal');
-      }
-    }
-  );
-
-  const onSubmit = (data) => {
+  // When editing, include currentPassword in PUT request if journal is encrypted
+  const onSubmit = async (data) => {
     if (isEncrypted && !encryptionPassword.trim()) {
       toast.error('Please enter an encryption password');
       return;
     }
-
     if (uploadedFiles.some(f => f.uploading)) {
       toast.error('Please wait for files to finish uploading');
       return;
     }
 
-    journalMutation.mutate(data);
+    const formData = new FormData();
+    
+    // Add all form fields to FormData
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, data[key]);
+      }
+    });
+
+    // Add encryption settings
+    formData.append('isEncrypted', isEncrypted);
+    if (isEncrypted && encryptionPassword) {
+      formData.append('encryptionPassword', encryptionPassword);
+    }
+
+    // Check if we already have the password in the cache
+    const cachedJournal = id ? queryClient.getQueryData(['journal', id]) : null;
+    const cachedPassword = cachedJournal?.unlockedPassword;
+
+    // If editing an encrypted journal and we don't have the cached password
+    if (id && journalData?.isEncrypted && !cachedPassword) {
+      setPasswordModalConfig({
+        title: "Verify Current Password",
+        description: "Enter the current password to edit this encrypted journal.",
+        onSubmit: async (password) => {
+          try {
+            setIsVerifyingPassword(true);
+            // Verify the password
+            await api.get(`/journal/${id}?password=${encodeURIComponent(password)}`);
+            
+            // Add the password to formData
+            formData.append('currentPassword', password);
+            
+            // Make the update request
+            const url = id ? `/journal/${id}` : '/journal';
+            const response = await api.put(url, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            setShowPasswordModal(false);
+            toast.success('Journal updated successfully!');
+            queryClient.invalidateQueries(['journals']);
+            queryClient.invalidateQueries(['journalStats']);
+            navigate('/journal');
+          } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to save journal');
+          } finally {
+            setIsVerifyingPassword(false);
+          }
+        }
+      });
+      setShowPasswordModal(true);
+      return;
+    }
+
+    // If we have the cached password, use it
+    if (id && journalData?.isEncrypted && cachedPassword) {
+      formData.append('currentPassword', cachedPassword);
+    }
+
+    // Add files
+    uploadedFiles.forEach((fileObj) => {
+      formData.append('media', fileObj.file);
+    });
+
+    try {
+      const url = id ? `/journal/${id}` : '/journal';
+      const response = await api[id ? 'put' : 'post'](url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      toast.success(id ? 'Journal updated successfully!' : 'Journal created successfully!');
+      queryClient.invalidateQueries(['journals']);
+      queryClient.invalidateQueries(['journalStats']);
+      navigate('/journal');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to save journal');
+    }
   };
 
   const handleCancel = () => {

@@ -23,6 +23,7 @@ const Profile = () => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [originalProfile, setOriginalProfile] = useState(null);
 
   const {
     register,
@@ -43,6 +44,7 @@ const Profile = () => {
     },
     {
       onSuccess: (data) => {
+        setOriginalProfile(data); // Save original for diff
         reset({
           fullName: data.fullName || '',
           surname: data.surname || '',
@@ -50,8 +52,8 @@ const Profile = () => {
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
           hobby: data.hobby || '',
           profession: data.profession || '',
-          institution: data.institution || '',
-          companyName: data.companyName || ''
+          institution: data.profession === 'Student' ? data.institution || '' : '',
+          companyName: data.profession === 'Professional' ? data.companyName || '' : ''
         });
       },
       onError: (error) => {
@@ -125,7 +127,21 @@ const Profile = () => {
   );
 
   const onSubmit = (data) => {
-    updateProfileMutation.mutate(data);
+    if (!originalProfile) return;
+    // Only send changed fields, including cleared fields (send empty string if cleared)
+    const changed = {};
+    Object.keys(data).forEach(key => {
+      // If the field is cleared, send empty string
+      if ((data[key] || '') !== (originalProfile[key] || '')) {
+        changed[key] = data[key] === undefined ? '' : data[key];
+      }
+    });
+    if (Object.keys(changed).length === 0) {
+      toast('No changes to update.');
+      setIsEditing(false);
+      return;
+    }
+    updateProfileMutation.mutate(changed);
   };
 
   const handleImageUpload = (event) => {

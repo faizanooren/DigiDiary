@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { toast } from 'react-hot-toast';
@@ -30,6 +30,9 @@ const JournalDetail = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [password, setPassword] = useState('');
+  const [unlockError, setUnlockError] = useState('');
+  const [unlocked, setUnlocked] = useState(false);
 
   // Fetch journal entry
   const { data: journal, isLoading, error } = useQuery(
@@ -39,6 +42,7 @@ const JournalDetail = () => {
       return response.data.journal;
     },
     {
+      staleTime: Infinity, // Keep the data fresh indefinitely once loaded
       onError: (error) => {
         if (error.response?.status === 401 && error.response?.data?.requiresPassword) {
           // Handle password requirement for encrypted journals
@@ -91,6 +95,33 @@ const JournalDetail = () => {
     }
   };
 
+  // If journal is encrypted and not unlocked, show password form
+  useEffect(() => {
+    if (journal && journal.isEncrypted && !unlocked) {
+      setShowPasswordModal(true);
+    }
+  }, [journal, unlocked]);
+
+  const handlePasswordFormSubmit = async (e) => {
+    e.preventDefault();
+    setIsVerifyingPassword(true);
+    setUnlockError('');
+    try {
+      const response = await api.get(`/journal/${id}?password=${encodeURIComponent(password)}`);
+      queryClient.setQueryData(['journal', id], {
+        ...response.data.journal,
+        unlockedPassword: password // Store the password for later use
+      });
+      setUnlocked(true);
+      setShowPasswordModal(false);
+      setPassword('');
+    } catch (error) {
+      setUnlockError('Invalid password. Please try again.');
+    } finally {
+      setIsVerifyingPassword(false);
+    }
+  };
+
   const getMoodEmoji = (rating) => {
     const emojis = ['😢', '😞', '😐', '🙂', '😊', '😄', '😁', '🤩', '🥰', '😍'];
     return emojis[rating - 1] || '😐';
@@ -123,6 +154,32 @@ const JournalDetail = () => {
           <ArrowLeft size={16} />
           Back to Journals
         </Link>
+      </div>
+    );
+  }
+
+  if (journal && journal.isEncrypted && !unlocked) {
+    return (
+      <div className="journal-protected-fallback">
+        <div style={{textAlign: 'center', marginTop: '4rem'}}>
+          <Lock size={48} style={{marginBottom: 16}}/>
+          <h2>This journal is password protected.</h2>
+          <form onSubmit={handlePasswordFormSubmit} style={{maxWidth: 320, margin: '2rem auto'}}>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Enter password"
+              style={{width: '100%', padding: '0.75em', fontSize: '1.1em', marginBottom: 8}}
+              disabled={isVerifyingPassword}
+              required
+            />
+            <button type="submit" className="btn btn-primary" disabled={isVerifyingPassword} style={{width: '100%'}}>
+              {isVerifyingPassword ? 'Unlocking...' : 'Unlock'}
+            </button>
+            {unlockError && <div style={{color: 'red', marginTop: 8}}>{unlockError}</div>}
+          </form>
+        </div>
       </div>
     );
   }

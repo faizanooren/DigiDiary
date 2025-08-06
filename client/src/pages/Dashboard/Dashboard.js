@@ -176,9 +176,11 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <p className="entry-preview">
-                    {journal.content.length > 150 
-                      ? `${journal.content.substring(0, 150)}...` 
-                      : journal.content
+                    {journal.isEncrypted 
+                      ? "This journal entry is password protected" 
+                      : (journal.content.length > 150 
+                          ? `${journal.content.substring(0, 150)}...` 
+                          : journal.content)
                     }
                   </p>
                   <div className="entry-footer">

@@ -68,8 +68,8 @@ exports.updateProfile = async (req, res) => {
     const updatableFields = {
       fullName: value => value.length >= 2 && value.length <= 50,
       surname: value => value.length >= 2 && value.length <= 50,
-      mobileNumber: value => /^[0-9]{11}$/.test(value),
-      dateOfBirth: value => !isNaN(new Date(value)),
+      mobileNumber: value => !value || /^[0-9]{11}$/.test(value),
+      dateOfBirth: value => !value || !isNaN(new Date(value)),
       hobby: value => typeof value === 'string',
       profession: value => typeof value === 'string',
       institution: value => typeof value === 'string',

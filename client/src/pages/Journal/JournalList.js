@@ -338,10 +338,17 @@ const JournalList = () => {
               </div>
 
               <div className="card-content">
-                <h3 className="entry-title">{journal.title}</h3>
-                <p className="entry-preview">
-                  {truncateText(journal.content)}
-                </p>
+                {journal.isEncrypted ? (
+                  <>
+                    <h3 className="entry-title"><Lock size={16} style={{marginRight: 4}}/> Protected Journal</h3>
+                    <p className="entry-preview">This journal is password protected.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="entry-title">{journal.title}</h3>
+                    <p className="entry-preview">{truncateText(journal.content)}</p>
+                  </>
+                )}
               </div>
 
               <div className="card-footer">
