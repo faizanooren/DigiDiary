@@ -1,0 +1,95 @@
+/* Layout Styles */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+}
+
+.layout-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin-left: 280px; /* Fixed sidebar width */
+}
+
+.layout-content {
+  flex: 1;
+  padding: var(--spacing-6);
+  overflow-y: auto;
+  background: var(--secondary-blue);
+  transition: all var(--transition-normal);
+}
+
+[data-theme="dark"] .layout-content {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+/* Sidebar Overlay */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  backdrop-filter: blur(4px);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .layout-main {
+    margin-left: 0;
+  }
+  
+  .layout-content {
+    padding: var(--spacing-4);
+  }
+}
+
+@media (max-width: 768px) {
+  .layout-content {
+    padding: var(--spacing-3);
+  }
+}
+
+/* Content Animations */
+.layout-content {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Loading States */
+.layout-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+/* Scrollbar for layout content */
+.layout-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.layout-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layout-content::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: var(--radius-full);
+}
+
+.layout-content::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+[data-theme="dark"] .layout-content::-webkit-scrollbar-thumb {
+  background: var(--gray-600);
+}
+
+[data-theme="dark"] .layout-content::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-500);
+} 

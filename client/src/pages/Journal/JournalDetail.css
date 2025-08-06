@@ -1,0 +1,303 @@
+.journal-detail-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.journal-detail-loading,
+.journal-detail-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  gap: 1rem;
+}
+
+.journal-detail-loading .loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.journal-detail-error h2 {
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.journal-detail-error p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--primary-color);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.back-btn:hover {
+  background: var(--primary-hover);
+}
+
+/* Header */
+.detail-header {
+  margin-bottom: 2rem;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.back-link:hover {
+  color: var(--text-primary);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.edit-btn,
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.edit-btn {
+  background: var(--primary-color);
+  color: white;
+}
+
+.edit-btn:hover {
+  background: var(--primary-hover);
+}
+
+.delete-btn {
+  background: var(--danger-color);
+  color: white;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Journal Content */
+.journal-content {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: var(--card-shadow);
+}
+
+.entry-header {
+  margin-bottom: 1.5rem;
+}
+
+.entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.entry-date,
+.entry-mood,
+.entry-encrypted {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mood-emoji {
+  font-size: 1.2rem;
+}
+
+.mood-label {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.entry-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Tags */
+.entry-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.tag {
+  background: var(--tag-bg);
+  color: var(--tag-color);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Media Gallery */
+.media-gallery {
+  margin-bottom: 2rem;
+}
+
+.media-gallery h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.media-item {
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.media-image {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.media-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  color: var(--text-secondary);
+  gap: 0.5rem;
+}
+
+/* Content */
+.entry-content {
+  margin-bottom: 2rem;
+}
+
+.content-text {
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.content-text p {
+  margin-bottom: 1rem;
+}
+
+.content-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Footer */
+.entry-footer {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+}
+
+.footer-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .journal-detail-container {
+    padding: 1rem;
+  }
+
+  .journal-content {
+    padding: 1.5rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .action-buttons {
+    width: 100%;
+  }
+
+  .edit-btn,
+  .delete-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .entry-title {
+    font-size: 1.5rem;
+  }
+
+  .entry-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .media-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+} 
