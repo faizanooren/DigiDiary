@@ -24,7 +24,7 @@ exports.getProfile = async (req, res) => {
 
     // Add profile picture URL if it exists
     if (userData.profilePicture && !userData.profilePicture.startsWith('http')) {
-      userData.profilePicture = `${process.env.SERVER_URL || 'http://localhost:5000'}${userData.profilePicture}`;
+      userData.profilePicture = `${process.env.SERVER_URL}${userData.profilePicture}`;
     }
 
     res.json({
@@ -46,10 +46,15 @@ exports.getProfile = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
   try {
+    console.log('Profile update request body:', req.body);
+    console.log('User ID:', req.user.id);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
+        message: 'Validation failed',
         errors: errors.array()
       });
     }
@@ -64,47 +69,61 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    // Define updatable fields and their validation rules
-    const updatableFields = {
-      fullName: value => value.length >= 2 && value.length <= 50,
-      surname: value => value.length >= 2 && value.length <= 50,
-      mobileNumber: value => !value || /^[0-9]{11}$/.test(value),
-      dateOfBirth: value => !value || !isNaN(new Date(value)),
-      hobby: value => typeof value === 'string',
-      profession: value => typeof value === 'string',
-      institution: value => typeof value === 'string',
-      companyName: value => typeof value === 'string'
-    };
+    // Define updatable fields
+    const updatableFields = [
+      'fullName', 'surname', 'mobileNumber', 'dateOfBirth', 
+      'hobby', 'profession', 'institution', 'companyName', 'theme'
+    ];
 
-    // Process updates
-    const updates = {};
-    Object.keys(req.body).forEach(field => {
-      const value = req.body[field];
-      if (updatableFields[field] && value !== undefined) {
-        // Validate the field value
-        if (updatableFields[field](value)) {
-          updates[field] = value;
+    let isModified = false;
+
+    // Process and apply updates, checking for actual changes
+    updatableFields.forEach(field => {
+      // Check if the field is present in the request body
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        const value = req.body[field];
+        let newValue;
+
+        // If value is an empty string, set field to undefined to clear it
+        if (value === '') {
+          newValue = undefined;
+        } else if (field === 'dateOfBirth' && value) {
+          newValue = new Date(value);
+        } else if ((field === 'hobby' || field === 'profession') && value) {
+          newValue = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+        } else {
+          newValue = value;
+        }
+
+        // Compare new value with the existing one to see if a change is needed
+        const oldValue = user[field];
+        let valuesDiffer = false;
+
+        if (field === 'dateOfBirth' && oldValue instanceof Date) {
+          // For dates, compare ISO strings to avoid timezone issues
+          const oldDateString = oldValue.toISOString().split('T')[0];
+          const newDateString = newValue ? new Date(newValue).toISOString().split('T')[0] : undefined;
+          valuesDiffer = oldDateString !== newDateString;
+        } else {
+          valuesDiffer = oldValue !== newValue;
+        }
+
+        if (valuesDiffer) {
+          user[field] = newValue;
+          isModified = true;
         }
       }
     });
 
-    // Update only if there are valid fields to update
-    if (Object.keys(updates).length > 0) {
-      // Update user with new values
-      Object.assign(user, updates);
+    // Save only if there are actual changes
+    if (isModified) {
       await user.save();
-    }
-
-    // Add profile picture URL if it exists
-    const userData = user.toObject();
-    if (userData.profilePicture && !userData.profilePicture.startsWith('http')) {
-      userData.profilePicture = `${process.env.SERVER_URL || 'http://localhost:5000'}${userData.profilePicture}`;
     }
 
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      user: userData
+      user: user
     });
   } catch (error) {
     console.error('Update profile error:', error);
@@ -152,16 +171,10 @@ exports.updateProfilePicture = async (req, res) => {
     user.profilePicture = `/uploads/profiles/${filename}`;
     await user.save();
 
-    // Add profile picture URL if it exists
-    const userData = user.toObject();
-    if (userData.profilePicture && !userData.profilePicture.startsWith('http')) {
-      userData.profilePicture = `${process.env.SERVER_URL || 'http://localhost:5000'}${userData.profilePicture}`;
-    }
-
     res.json({
       success: true,
       message: 'Profile picture updated successfully',
-      user: userData
+      user
     });
   } catch (error) {
     console.error('Update profile picture error:', error);
@@ -186,25 +199,22 @@ exports.removeProfilePicture = async (req, res) => {
       });
     }
 
-    // Delete old profile picture if it exists
     if (user.profilePicture) {
       try {
-        const oldPath = user.profilePicture.replace('/uploads/', '');
-        deleteFile(oldPath);
+        const relativePath = user.profilePicture.replace('/uploads/', '');
+        deleteFile(relativePath);
       } catch (deleteError) {
         console.error('Error deleting profile picture:', deleteError);
+        // continue to clear db reference even if file delete fails
       }
+
+      user.profilePicture = undefined;
+      await user.save();
     }
 
-    // Remove profile picture from user
-    user.profilePicture = undefined;
-    await user.save();
-
-    const userData = user.toObject();
-    res.json({
+    return res.json({
       success: true,
-      message: 'Profile picture removed successfully',
-      user: userData
+      message: 'Profile picture removed successfully'
     });
   } catch (error) {
     console.error('Remove profile picture error:', error);

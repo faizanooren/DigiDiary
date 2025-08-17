@@ -19,24 +19,46 @@ router.use(protect);
 
 // Validation middleware
 const updateProfileValidation = [
-  body('mobileNumber')
+  body('fullName')
     .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Full name must be between 2 and 50 characters'),
+  body('surname')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Surname must be between 2 and 50 characters'),
+  body('mobileNumber')
+    .if(body('mobileNumber').notEmpty())
     .matches(/^\+?[\d\s-()]+$/)
     .withMessage('Please provide a valid mobile number'),
   body('dateOfBirth')
-    .optional()
+    .if(body('dateOfBirth').notEmpty())
     .isISO8601()
     .withMessage('Please provide a valid date'),
   body('hobby')
-    .optional()
-    .isIn([
-      'reading', 'writing', 'photography', 'cooking', 'gardening', 'painting',
-      'music', 'sports', 'travel', 'gaming', 'fitness', 'dancing', 'hiking', 'other'
-    ])
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (!value) return true;
+      const validHobbies = [
+        'Reading', 'Writing', 'Photography', 'Cooking', 'Gardening', 'Painting',
+        'Music', 'Dancing', 'Sports', 'Travel', 'Gaming', 'Crafting',
+        'Fitness', 'Yoga', 'Meditation', 'Technology', 'Art', 'Fashion',
+        'Food', 'Nature', 'Science', 'History', 'Languages', 'Other'
+      ];
+      // Convert to proper case for validation
+      return validHobbies.some(h => h.toLowerCase() === value.toLowerCase());
+    })
     .withMessage('Please select a valid hobby'),
   body('profession')
-    .optional()
-    .isIn(['student', 'software-developer', 'designer', 'teacher', 'doctor', 'engineer', 'marketing', 'sales', 'manager', 'entrepreneur', 'freelancer', 'other'])
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (!value) return true;
+      const validProfessions = ['Student', 'Employee', 'Freelancer', 'Entrepreneur', 'Retired', 'Other'];
+      // Convert to proper case for validation
+      return validProfessions.some(p => p.toLowerCase() === value.toLowerCase());
+    })
     .withMessage('Please select a valid profession'),
   body('institution')
     .optional()

@@ -28,10 +28,10 @@ exports.createJournal = async (req, res) => {
     const media = [];
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
-        // Convert Windows path to URL format and ensure proper URL structure
-        const url = file.path.replace(/\\/g, '/');
+        // Generate proper URL path for uploaded files
+        const relativePath = file.path.replace(/\\/g, '/').replace(/.*\/uploads\//, '');
         media.push({
-          url: url,
+          url: `/uploads/${relativePath}`,
           type: file.mimetype.startsWith('image/') ? 'image' : 'video',
           filename: file.originalname,
           size: file.size
@@ -117,9 +117,29 @@ exports.getJournals = async (req, res) => {
 
     const total = await Journal.countDocuments(query);
 
+    // Sanitize journals to hide content for encrypted entries
+    const sanitizedJournals = journals.map(journal => {
+      const journalObj = journal.toObject();
+      
+      // If journal is encrypted, hide sensitive content
+      if (journalObj.isEncrypted) {
+        return {
+          ...journalObj,
+          title: '[Protected Journal]',
+          content: '[Content is password protected]',
+          moodRating: null,
+          moodEmoji: '🔒',
+          media: [], // Hide media for encrypted journals
+          tags: [] // Hide tags for encrypted journals
+        };
+      }
+      
+      return journalObj;
+    });
+
     res.json({
       success: true,
-      journals,
+      journals: sanitizedJournals,
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
@@ -161,35 +181,51 @@ exports.getJournal = async (req, res) => {
       });
     }
 
-    // If journal is encrypted, check if password is provided
+    // If journal is encrypted, sanitize the output
     if (journal.isEncrypted) {
-      const { password } = req.query;
+      const { password } = req.query; // Check for password in query for verified requests
+
       if (!password) {
-        return res.status(401).json({
-          success: false,
-          message: 'Password required for encrypted journal',
-          requiresPassword: true
-        });
+        // If no password, return sanitized data and indicate it's locked
+        const sanitizedJournal = {
+          ...journal.toObject(),
+          title: '[Protected Journal]',
+          content: '[Content is password protected]',
+          moodRating: null,
+          media: [],
+          tags: [],
+          contentLocked: true,
+        };
+        return res.json({ success: true, journal: sanitizedJournal });
       }
 
-      // Get journal with password field for comparison
-      const journalWithPassword = await Journal.findById(req.params.id).select('+encryptionPassword');
-      const isPasswordValid = await journalWithPassword.comparePassword(password);
-      
+      // If password is provided, verify it
+      const journalWithPassword = await Journal.findById(req.params.id).select('+encryptionPassword +passwordFailedAttempts +passwordLockoutUntil');
+      const isPasswordValid = await journalWithPassword.verifyPasswordAndHandleLockout(password);
+
       if (!isPasswordValid) {
         return res.status(401).json({
           success: false,
-          message: 'Invalid password'
+          message: 'Invalid password',
         });
       }
+
+      // If password is valid, return the full journal
+      return res.json({
+        success: true,
+        journal: journalWithPassword, // Return the full journal object
+      });
     }
 
     res.json({
       success: true,
-      journal
+      journal,
     });
   } catch (error) {
     console.error('Get journal error:', error);
+    if (error.status === 429) {
+      return res.status(429).json({ success: false, message: error.message });
+    }
     res.status(500).json({
       success: false,
       message: 'Error fetching journal entry',
@@ -228,23 +264,23 @@ exports.updateJournal = async (req, res) => {
       });
     }
 
-    // If journal is encrypted, verify current password before allowing edit
+    // If journal is encrypted, verify password before allowing edit
     if (journal.isEncrypted) {
-      const { currentPassword } = req.body;
-      if (!currentPassword) {
+      const { password } = req.body;
+      if (!password) {
         return res.status(401).json({
           success: false,
-          message: 'Current password required to edit encrypted journal'
+          message: 'Password required to edit encrypted journal'
         });
       }
 
-      const journalWithPassword = await Journal.findById(req.params.id).select('+encryptionPassword');
-      const isPasswordValid = await journalWithPassword.comparePassword(currentPassword);
+      const journalWithPassword = await Journal.findById(req.params.id).select('+encryptionPassword +passwordFailedAttempts +passwordLockoutUntil');
+      const isPasswordValid = await journalWithPassword.verifyPasswordAndHandleLockout(password);
       
       if (!isPasswordValid) {
         return res.status(401).json({
           success: false,
-          message: 'Invalid current password'
+          message: 'Invalid password'
         });
       }
     }
@@ -259,36 +295,36 @@ exports.updateJournal = async (req, res) => {
       isPublic
     } = req.body;
 
-    const { getFileUrl } = require('../middlewares/upload');
-
     // Handle media files
     const media = [];
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
+        // Generate proper URL path for uploaded files
+        const relativePath = file.path.replace(/\\/g, '/').replace(/.*\/uploads\//, '');
         media.push({
-          url: getFileUrl(file.filename, 'journals'),
+          url: `/uploads/${relativePath}`,
           type: file.mimetype.startsWith('image/') ? 'image' : 'video',
-          filename: file.filename,
-          originalname: file.originalname,
+          filename: file.originalname,
           size: file.size
         });
       });
     }
 
-    journal = await Journal.findByIdAndUpdate(
-      req.params.id,
-      {
-        title,
-        content,
-        media: media.length > 0 ? media : journal.media,
-        moodRating,
-        isEncrypted,
-        encryptionPassword,
-        tags: tags ? tags.split(',').map(tag => tag.trim()) : journal.tags,
-        isPublic
-      },
-      { new: true, runValidators: true }
-    ).populate('user', 'fullName surname');
+    // Update journal fields
+    journal.title = title;
+    journal.content = content;
+    journal.media = media.length > 0 ? media : journal.media;
+    journal.moodRating = moodRating;
+    journal.isEncrypted = isEncrypted;
+    if (encryptionPassword) {
+      journal.encryptionPassword = encryptionPassword;
+    }
+    journal.tags = tags ? tags.split(',').map(tag => tag.trim()) : journal.tags;
+    journal.isPublic = isPublic;
+
+    // Save to trigger pre-save middleware for password hashing
+    await journal.save();
+    await journal.populate('user', 'fullName surname');
 
     res.json({
       success: true,
@@ -297,9 +333,130 @@ exports.updateJournal = async (req, res) => {
     });
   } catch (error) {
     console.error('Update journal error:', error);
+    if (error.status === 429) {
+      return res.status(429).json({ success: false, message: error.message });
+    }
     res.status(500).json({
       success: false,
       message: 'Error updating journal entry',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+// @desc    Verify journal password with action routing
+// @route   POST /api/journal/:id/verify-password
+// @access  Private
+exports.verifyJournalPassword = async (req, res) => {
+  try {
+    const { password, action } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required'
+      });
+    }
+
+    if (!action || !['view', 'edit', 'delete'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid action is required (view, edit, delete)'
+      });
+    }
+
+    const journal = await Journal.findById(req.params.id).select('+encryptionPassword +passwordFailedAttempts +passwordLockoutUntil');
+
+    if (!journal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Journal entry not found'
+      });
+    }
+
+    // Check ownership
+    if (journal.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Check if journal is encrypted
+    if (!journal.isEncrypted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Journal is not password protected'
+      });
+    }
+
+    // Check if account is locked
+    if (journal.passwordLockoutUntil && journal.passwordLockoutUntil > new Date()) {
+      const remainingHours = Math.ceil((journal.passwordLockoutUntil - new Date()) / (1000 * 60 * 60));
+      return res.status(429).json({
+        success: false,
+        message: `You have exceeded the maximum number of password attempts. Please try again in ${remainingHours} hour(s).`,
+        lockoutUntil: journal.passwordLockoutUntil
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await journal.comparePassword(password);
+    
+    if (!isPasswordValid) {
+      // Increment failed attempts
+      journal.passwordFailedAttempts = (journal.passwordFailedAttempts || 0) + 1;
+      
+      if (journal.passwordFailedAttempts >= 3) {
+        // Lock for 3 hours after 3 failed attempts
+        journal.passwordLockoutUntil = new Date(Date.now() + 3 * 60 * 60 * 1000);
+        await journal.save();
+        
+        return res.status(429).json({
+          success: false,
+          message: 'You have lost 3 attempts. Try again after 3 hours.',
+          lockoutUntil: journal.passwordLockoutUntil,
+          attemptsExceeded: true
+        });
+      }
+      
+      await journal.save();
+      const remainingAttempts = 3 - journal.passwordFailedAttempts;
+      
+      return res.status(401).json({
+        success: false,
+        message: `Password is wrong. ${remainingAttempts} attempt(s) remaining.`,
+        remainingAttempts
+      });
+    }
+
+    // Password is correct, reset failed attempts
+    if (journal.passwordFailedAttempts > 0) {
+      journal.passwordFailedAttempts = 0;
+      journal.passwordLockoutUntil = null;
+      await journal.save();
+    }
+
+    // Handle different actions
+    let responseData = {
+      success: true,
+      message: 'Password verified successfully',
+      action
+    };
+
+    if (action === 'delete') {
+      // For delete action, perform the deletion immediately
+      await Journal.findByIdAndDelete(req.params.id);
+      responseData.message = 'Journal entry deleted successfully';
+      responseData.deleted = true;
+    }
+
+    res.json(responseData);
+  } catch (error) {
+    console.error('Verify journal password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying password',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
@@ -327,6 +484,28 @@ exports.deleteJournal = async (req, res) => {
       });
     }
 
+    // If journal is encrypted, verify password before allowing delete
+    if (journal.isEncrypted) {
+      const { password } = req.body;
+      if (!password) {
+        return res.status(401).json({
+          success: false,
+          message: 'Password required to delete encrypted journal',
+          requiresPassword: true
+        });
+      }
+
+      const journalWithPassword = await Journal.findById(req.params.id).select('+encryptionPassword +passwordFailedAttempts +passwordLockoutUntil');
+      const isPasswordValid = await journalWithPassword.verifyPasswordAndHandleLockout(password);
+      
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid password'
+        });
+      }
+    }
+
     await Journal.findByIdAndDelete(req.params.id);
 
     res.json({
@@ -335,6 +514,9 @@ exports.deleteJournal = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete journal error:', error);
+    if (error.status === 429) {
+      return res.status(429).json({ success: false, message: error.message });
+    }
     res.status(500).json({
       success: false,
       message: 'Error deleting journal entry',

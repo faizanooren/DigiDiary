@@ -1,3 +1,50 @@
+/* CSS Variables for Profile Page */
+:root {
+  /* Light Mode Variables */
+  --primary: #87CEEB;
+  --primary-light: #B0E0E6;
+  --primary-dark: #4682B4;
+  --primary-light-alpha: rgba(135, 206, 235, 0.1);
+  
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  
+  --background-primary: #FFFFFF;
+  --background-secondary: #F8FAFC;
+  --background-tertiary: #F1F5F9;
+  --background-card: #FFFFFF;
+  
+  --border: #E2E8F0;
+  --border-dark: #CBD5E1;
+  
+  --white: #FFFFFF;
+  --error: #EF4444;
+  --success: #10B981;
+}
+
+/* Dark Mode Variables */
+[data-theme="dark"] {
+  --primary: #60A5FA;
+  --primary-light: #93C5FD;
+  --primary-dark: #3B82F6;
+  --primary-light-alpha: rgba(96, 165, 250, 0.1);
+  
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  
+  --background-primary: rgba(30, 41, 59, 0.8);
+  --background-secondary: rgba(30, 41, 59, 0.6);
+  --background-tertiary: rgba(30, 41, 59, 0.4);
+  --background-card: rgba(30, 41, 59, 0.8);
+  
+  --border: rgba(148, 163, 184, 0.5);
+  --border-dark: rgba(148, 163, 184, 0.3);
+  
+  --white: #FFFFFF;
+  --error: #EF4444;
+  --success: #10B981;
+}
+
 .profile-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -114,6 +161,31 @@
   transform: translateY(-2px);
 }
 
+.remove-photo-button {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  background: var(--error);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: all 0.3s ease;
+}
+
+.remove-photo-button:hover {
+  background: #DC2626;
+  transform: translateY(-2px);
+}
+
+.remove-photo-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Profile Stats */
 .profile-stats {
   width: 100%;
@@ -219,7 +291,7 @@
   padding: var(--spacing-3) var(--spacing-6);
   background: var(--white-pure);
   color: var(--gray-700);
-  border: 2px solid var(--gray-300);
+  border: 2px solid #000000;
   border-radius: var(--radius-lg);
   cursor: pointer;
   font-size: var(--font-size-sm);
@@ -230,7 +302,7 @@
 
 .cancel-button:hover {
   background: var(--gray-100);
-  border-color: var(--gray-400);
+  border-color: #000000;
   transform: translateY(-1px);
 }
 
@@ -296,7 +368,7 @@
 .form-group input,
 .form-group select {
   padding: var(--spacing-3) var(--spacing-4);
-  border: 1px solid var(--border);
+  border: 2px solid #000000;
   border-radius: var(--radius-lg);
   font-size: var(--font-size-base);
   background: var(--background-primary);
@@ -492,9 +564,9 @@
 
 [data-theme="dark"] .form-group input,
 [data-theme="dark"] .form-group select {
-  background: var(--background-primary-dark);
-  border-color: var(--border-dark);
-  color: var(--text-primary-dark);
+  background: var(--background-primary);
+  border: 2px solid #FFFFFF;
+  color: var(--text-primary);
 }
 
 [data-theme="dark"] .form-group input:disabled,
@@ -504,11 +576,12 @@
 }
 
 [data-theme="dark"] .cancel-button {
-  background: var(--background-secondary-dark);
-  border-color: var(--border-dark);
-  color: var(--text-primary-dark);
+  background: var(--background-secondary);
+  border: 2px solid #FFFFFF;
+  color: var(--text-primary);
 }
 
 [data-theme="dark"] .cancel-button:hover {
-  background: var(--background-tertiary-dark);
+  background: var(--background-tertiary);
+  border-color: #FFFFFF;
 } 

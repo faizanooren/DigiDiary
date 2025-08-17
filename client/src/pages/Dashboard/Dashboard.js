@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, Calendar, TrendingUp, BookOpen, Clock } from 'lucide-react';
+import { Plus, Calendar, TrendingUp, BookOpen, Clock, ListTodo, Star } from 'lucide-react';
 import api from '../../utils/api';
 import './Dashboard.css';
 
@@ -19,12 +19,12 @@ const Dashboard = () => {
     }
   );
 
-  // Fetch journal stats
+  // Fetch dashboard stats
   const { data: statsData, isLoading: statsLoading } = useQuery(
-    'journalStats',
+    'dashboardStats',
     async () => {
-      const response = await api.get('/journal/stats');
-      return response.data;
+      const response = await api.get('/insights/stats');
+      return response.data.data;
     }
   );
 
@@ -121,29 +121,35 @@ const Dashboard = () => {
           <h2>Your Journey Stats</h2>
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-icon">
-                <BookOpen size={24} />
-              </div>
+              <div className="stat-icon"><BookOpen size={24} /></div>
               <div className="stat-content">
-                <h3>{statsLoading ? '...' : statsData?.stats?.totalEntries || 0}</h3>
-                <p>Total Entries</p>
+                <h3>{statsLoading ? '...' : statsData?.journalCount || 0}</h3>
+                <p>Journal Entries</p>
               </div>
             </div>
-            
             <div className="stat-card">
-              <div className="stat-icon">
-                <TrendingUp size={24} />
-              </div>
+              <div className="stat-icon"><ListTodo size={24} /></div>
               <div className="stat-content">
-                <h3>{statsLoading ? '...' : Math.round(statsData?.stats?.averageMood || 0)}</h3>
+                <h3>{statsLoading ? '...' : statsData?.todoCount || 0}</h3>
+                <p>To-Do Items</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon"><Star size={24} /></div>
+              <div className="stat-content">
+                <h3>{statsLoading ? '...' : statsData?.bucketListCount || 0}</h3>
+                <p>Bucket List Items</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon"><TrendingUp size={24} /></div>
+              <div className="stat-content">
+                <h3>{statsLoading ? '...' : Math.round(statsData?.averageMood || 0)}</h3>
                 <p>Average Mood</p>
               </div>
             </div>
-            
             <div className="stat-card">
-              <div className="stat-icon">
-                <Clock size={24} />
-              </div>
+              <div className="stat-icon"><Clock size={24} /></div>
               <div className="stat-content">
                 <h3>{user?.createdAt ? Math.floor((Date.now() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24)) : 0}</h3>
                 <p>Days with DigiDiary</p>
@@ -177,10 +183,10 @@ const Dashboard = () => {
                   </div>
                   <p className="entry-preview">
                     {journal.isEncrypted 
-                      ? "This journal entry is password protected" 
-                      : (journal.content.length > 150 
-                          ? `${journal.content.substring(0, 150)}...` 
-                          : journal.content)
+                      ? '[Content is password protected]'
+                      : journal.content.length > 150 
+                        ? `${journal.content.substring(0, 150)}...` 
+                        : journal.content
                     }
                   </p>
                   <div className="entry-footer">

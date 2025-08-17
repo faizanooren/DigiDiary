@@ -68,7 +68,7 @@
 .search-input {
   width: 100%;
   padding: var(--spacing-3) var(--spacing-3) var(--spacing-3) var(--spacing-10);
-  border: 2px solid var(--gray-200);
+  border: 2px solid #000000;
   border-radius: var(--radius-xl);
   font-size: var(--font-size-sm);
   background: var(--gray-50);
@@ -326,7 +326,7 @@
 
 [data-theme="dark"] .search-input {
   background: rgba(30, 41, 59, 0.8);
-  border-color: var(--gray-600);
+  border: 2px solid #FFFFFF;
   color: var(--gray-200);
   backdrop-filter: blur(10px);
 }

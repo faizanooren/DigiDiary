@@ -29,18 +29,12 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Only log out if 401 is from /auth/me or /auth/refresh
-    if (
-      error.response?.status === 401 &&
-      error.config &&
-      (error.config.url?.includes('/auth/me') || error.config.url?.includes('/auth/refresh'))
-    ) {
+    // Handle 401 Unauthorized - redirect to login
+    if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
-      return;
     }
-    // Otherwise, let the page handle the error (for protected journals, etc)
     
     // Handle 403 Forbidden
     if (error.response?.status === 403) {

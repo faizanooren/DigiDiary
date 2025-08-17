@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { toast } from 'react-hot-toast';
@@ -23,14 +23,14 @@ const Profile = () => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [originalProfile, setOriginalProfile] = useState(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
-    watch
+    watch,
+    setValue
   } = useForm();
 
   const watchedProfession = watch('profession');
@@ -44,7 +44,6 @@ const Profile = () => {
     },
     {
       onSuccess: (data) => {
-        setOriginalProfile(data); // Save original for diff
         reset({
           fullName: data.fullName || '',
           surname: data.surname || '',
@@ -52,8 +51,8 @@ const Profile = () => {
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
           hobby: data.hobby || '',
           profession: data.profession || '',
-          institution: data.profession === 'Student' ? data.institution || '' : '',
-          companyName: data.profession === 'Professional' ? data.companyName || '' : ''
+          institution: data.institution || '',
+          companyName: data.companyName || ''
         });
       },
       onError: (error) => {
@@ -68,7 +67,15 @@ const Profile = () => {
   // Update profile mutation
   const updateProfileMutation = useMutation(
     async (data) => {
-      const response = await api.put('/user/profile', data);
+      // Sanitize data before sending
+      const payload = { ...data };
+      if (payload.profession !== 'Student') {
+        payload.institution = '';
+      }
+      if (payload.profession === 'Student' || !payload.profession) {
+        payload.companyName = '';
+      }
+      const response = await api.put('/user/profile', payload);
       return response.data;
     },
     {
@@ -115,9 +122,11 @@ const Profile = () => {
       return response.data;
     },
     {
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast.success('Profile picture removed!');
-        updateUser(data.user);
+        // Create a new user object with profilePicture set to null
+        const updatedUser = { ...user, profilePicture: null };
+        updateUser(updatedUser);
         queryClient.invalidateQueries(['userProfile']);
       },
       onError: (error) => {
@@ -127,21 +136,7 @@ const Profile = () => {
   );
 
   const onSubmit = (data) => {
-    if (!originalProfile) return;
-    // Only send changed fields, including cleared fields (send empty string if cleared)
-    const changed = {};
-    Object.keys(data).forEach(key => {
-      // If the field is cleared, send empty string
-      if ((data[key] || '') !== (originalProfile[key] || '')) {
-        changed[key] = data[key] === undefined ? '' : data[key];
-      }
-    });
-    if (Object.keys(changed).length === 0) {
-      toast('No changes to update.');
-      setIsEditing(false);
-      return;
-    }
-    updateProfileMutation.mutate(changed);
+    updateProfileMutation.mutate(data);
   };
 
   const handleImageUpload = (event) => {
@@ -164,19 +159,38 @@ const Profile = () => {
     setIsEditing(false);
     reset();
   };
+  
+  useEffect(() => {
+    if (profileData) {
+        const currentProfession = watch('profession');
+        if (currentProfession !== 'Student') {
+            setValue('institution', '');
+        }
+        if (currentProfession === 'Student' || !currentProfession) {
+            setValue('companyName', '');
+        }
+    }
+  }, [watch('profession'), profileData, setValue]);
+
 
   const calculateProfileCompletion = () => {
+    if (!profileData) return 0;
     const fields = [
-      profileData?.fullName,
-      profileData?.surname,
-      profileData?.mobileNumber,
-      profileData?.dateOfBirth,
-      profileData?.hobby,
-      profileData?.profession,
-      profileData?.institution || profileData?.companyName
+      profileData.fullName,
+      profileData.surname,
+      profileData.mobileNumber,
+      profileData.dateOfBirth,
+      profileData.hobby,
+      profileData.profession,
     ];
-    const filledFields = fields.filter(field => field && field.trim() !== '').length;
-    return Math.round((filledFields / fields.length) * 100);
+    let filledFields = fields.filter(field => field && String(field).trim() !== '').length;
+    if (profileData.profession === 'Student' && profileData.institution) {
+        filledFields++;
+    } else if (profileData.profession && profileData.profession !== 'Student' && profileData.companyName) {
+        filledFields++;
+    }
+    const totalFields = fields.length + 1; // +1 for the conditional field (institution/companyName)
+    return Math.round((filledFields / totalFields) * 100);
   };
 
   if (isLoading) {
@@ -279,9 +293,9 @@ const Profile = () => {
                 <button 
                   className="save-button" 
                   onClick={handleSubmit(onSubmit)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || updateProfileMutation.isLoading}
                 >
-                  {isSubmitting ? (
+                  {isSubmitting || updateProfileMutation.isLoading ? (
                     <>
                       <Loader2 className="button-spinner" />
                       Saving...
@@ -380,20 +394,30 @@ const Profile = () => {
                     className={errors.hobby ? 'error' : ''}
                   >
                     <option value="">Select a hobby</option>
-                    <option value="reading">Reading</option>
-                    <option value="writing">Writing</option>
-                    <option value="photography">Photography</option>
-                    <option value="cooking">Cooking</option>
-                    <option value="gardening">Gardening</option>
-                    <option value="painting">Painting</option>
-                    <option value="music">Music</option>
-                    <option value="sports">Sports</option>
-                    <option value="travel">Travel</option>
-                    <option value="gaming">Gaming</option>
-                    <option value="fitness">Fitness</option>
-                    <option value="dancing">Dancing</option>
-                    <option value="hiking">Hiking</option>
-                    <option value="other">Other</option>
+                    <option value="Reading">Reading</option>
+                    <option value="Writing">Writing</option>
+                    <option value="Photography">Photography</option>
+                    <option value="Cooking">Cooking</option>
+                    <option value="Gardening">Gardening</option>
+                    <option value="Painting">Painting</option>
+                    <option value="Music">Music</option>
+                    <option value="Dancing">Dancing</option>
+                    <option value="Sports">Sports</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Gaming">Gaming</option>
+                    <option value="Crafting">Crafting</option>
+                    <option value="Fitness">Fitness</option>
+                    <option value="Yoga">Yoga</option>
+                    <option value="Meditation">Meditation</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Art">Art</option>
+                    <option value="Fashion">Fashion</option>
+                    <option value="Food">Food</option>
+                    <option value="Nature">Nature</option>
+                    <option value="Science">Science</option>
+                    <option value="History">History</option>
+                    <option value="Languages">Languages</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 {errors.hobby && <span className="error-message">{errors.hobby.message}</span>}
@@ -410,25 +434,19 @@ const Profile = () => {
                     className={errors.profession ? 'error' : ''}
                   >
                     <option value="">Select profession</option>
-                    <option value="student">Student</option>
-                    <option value="software-developer">Software Developer</option>
-                    <option value="designer">Designer</option>
-                    <option value="teacher">Teacher</option>
-                    <option value="doctor">Doctor</option>
-                    <option value="engineer">Engineer</option>
-                    <option value="marketing">Marketing</option>
-                    <option value="sales">Sales</option>
-                    <option value="manager">Manager</option>
-                    <option value="entrepreneur">Entrepreneur</option>
-                    <option value="freelancer">Freelancer</option>
-                    <option value="other">Other</option>
+                    <option value="Student">Student</option>
+                    <option value="Employee">Employee</option>
+                    <option value="Freelancer">Freelancer</option>
+                    <option value="Entrepreneur">Entrepreneur</option>
+                    <option value="Retired">Retired</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 {errors.profession && <span className="error-message">{errors.profession.message}</span>}
               </div>
             </div>
 
-            {watchedProfession === 'student' ? (
+            {watchedProfession === 'Student' ? (
               <div className="form-group">
                 <label htmlFor="institution">School/College/University</label>
                 <div className="input-with-icon">
@@ -444,7 +462,7 @@ const Profile = () => {
                 </div>
                 {errors.institution && <span className="error-message">{errors.institution.message}</span>}
               </div>
-            ) : watchedProfession && watchedProfession !== 'student' ? (
+            ) : watchedProfession && watchedProfession !== 'Student' && watchedProfession !== '' ? (
               <div className="form-group">
                 <label htmlFor="companyName">Company Name</label>
                 <div className="input-with-icon">

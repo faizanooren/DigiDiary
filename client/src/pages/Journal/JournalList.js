@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { usePasswordPrompt } from '../../contexts/PasswordPromptContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { 
@@ -27,6 +28,7 @@ import './JournalList.css';
 const JournalList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { promptForPassword } = usePasswordPrompt();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMood, setSelectedMood] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
@@ -74,26 +76,35 @@ const JournalList = () => {
   const totalPages = journalsData?.totalPages || 1;
   const totalJournals = journalsData?.totalJournals || 0;
 
-  // Delete journal mutation
+  // Delete journal mutation (for non-encrypted journals)
   const deleteMutation = useMutation(
-    async (journalId) => {
-      await api.delete(`/journal/${journalId}`);
-    },
+    (journalId) => api.delete(`/journal/${journalId}`),
     {
       onSuccess: () => {
         toast.success('Journal deleted successfully');
-        queryClient.invalidateQueries(['journals']);
+        queryClient.invalidateQueries('journals');
         setDeleteDialog({ isOpen: false, journal: null });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || 'Failed to delete journal');
-      }
+      },
     }
   );
 
-  const handleDelete = (journal) => {
-    setDeleteDialog({ isOpen: true, journal });
+  const handleJournalAction = (journal, action) => {
+    if (journal.isEncrypted) {
+      promptForPassword(journal._id, action);
+    } else {
+      if (action === 'view') {
+        navigate(`/journal/${journal._id}`);
+      } else if (action === 'edit') {
+        navigate(`/journal/${journal._id}/edit`);
+      } else if (action === 'delete') {
+        setDeleteDialog({ isOpen: true, journal });
+      }
+    }
   };
+
 
   const confirmDelete = () => {
     if (deleteDialog.journal) {
@@ -101,9 +112,10 @@ const JournalList = () => {
     }
   };
 
-  const getMoodEmoji = (rating) => {
+  const getMoodEmoji = (journal) => {
+    if (journal.isEncrypted) return '🔒';
     const emojis = ['😢', '😞', '😐', '🙂', '😊', '😄', '😁', '🤩', '🥰', '😍'];
-    return emojis[rating - 1] || '😐';
+    return emojis[journal.moodRating - 1] || '😐';
   };
 
   const getMoodLabel = (rating) => {
@@ -305,7 +317,7 @@ const JournalList = () => {
               <div className="card-header">
                 <div className="card-meta">
                   <span className="mood-indicator">
-                    {getMoodEmoji(journal.moodRating)}
+                    {getMoodEmoji(journal)}
                   </span>
                   <span className="entry-date">
                     {format(new Date(journal.date || journal.createdAt), 'MMM dd, yyyy')}
@@ -317,16 +329,22 @@ const JournalList = () => {
                       <MoreVertical size={16} />
                     </button>
                     <div className="dropdown-menu">
-                      <Link to={`/journal/${journal._id}`} className="dropdown-item">
+                      <button 
+                        onClick={() => handleJournalAction(journal, 'view')}
+                        className="dropdown-item"
+                      >
                         <Eye size={14} />
                         View
-                      </Link>
-                      <Link to={`/journal/${journal._id}/edit`} className="dropdown-item">
+                      </button>
+                      <button 
+                        onClick={() => handleJournalAction(journal, 'edit')}
+                        className="dropdown-item"
+                      >
                         <Edit size={14} />
                         Edit
-                      </Link>
+                      </button>
                       <button
-                        onClick={() => handleDelete(journal)}
+                        onClick={() => handleJournalAction(journal, 'delete')}
                         className="dropdown-item delete"
                       >
                         <Trash2 size={14} />
@@ -338,17 +356,10 @@ const JournalList = () => {
               </div>
 
               <div className="card-content">
-                {journal.isEncrypted ? (
-                  <>
-                    <h3 className="entry-title"><Lock size={16} style={{marginRight: 4}}/> Protected Journal</h3>
-                    <p className="entry-preview">This journal is password protected.</p>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="entry-title">{journal.title}</h3>
-                    <p className="entry-preview">{truncateText(journal.content)}</p>
-                  </>
-                )}
+                <h3 className="entry-title">{journal.title}</h3>
+                <p className="entry-preview">
+                  {truncateText(journal.content)}
+                </p>
               </div>
 
               <div className="card-footer">
@@ -430,6 +441,7 @@ const JournalList = () => {
         type="danger"
         isLoading={deleteMutation.isLoading}
       />
+
     </div>
   );
 };

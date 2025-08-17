@@ -1,12 +1,8 @@
 import React from 'react';
+import MoodInsights from './MoodInsights';
 
 const Insights = () => {
-  return (
-    <div className="container">
-      <h1>Insights & Analytics</h1>
-      <p>Mood tracking and insights page coming soon...</p>
-    </div>
-  );
+  return <MoodInsights />;
 };
 
 export default Insights; 

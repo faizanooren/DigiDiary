@@ -48,6 +48,15 @@ const journalSchema = new mongoose.Schema({
     type: String,
     select: false
   },
+  passwordFailedAttempts: {
+    type: Number,
+    default: 0,
+    select: false
+  },
+  passwordLockoutUntil: {
+    type: Date,
+    select: false
+  },
   tags: {
     type: [String],
     default: []
@@ -141,6 +150,37 @@ journalSchema.methods.comparePassword = async function(candidatePassword) {
     return false;
   }
   return await bcrypt.compare(candidatePassword, this.encryptionPassword);
+};
+
+// Method to verify password and handle lockouts
+journalSchema.methods.verifyPasswordAndHandleLockout = async function(candidatePassword) {
+  if (this.passwordLockoutUntil && this.passwordLockoutUntil > new Date()) {
+    const remainingTime = Math.ceil((this.passwordLockoutUntil - new Date()) / (1000 * 60));
+    const error = new Error(`This journal is locked due to too many failed password attempts. Please try again in ${remainingTime} minutes.`);
+    error.status = 429; // Too Many Requests
+    throw error;
+  }
+
+  const isMatch = await this.comparePassword(candidatePassword);
+
+  if (isMatch) {
+    // Password is correct, reset attempts if there were any previous failed ones
+    if (this.passwordFailedAttempts > 0) {
+      this.passwordFailedAttempts = 0;
+      this.passwordLockoutUntil = null;
+      await this.save();
+    }
+    return true;
+  } else {
+    // Password is incorrect, increment attempts
+    this.passwordFailedAttempts = (this.passwordFailedAttempts || 0) + 1;
+    if (this.passwordFailedAttempts >= 3) {
+      // Lock for 3 hours
+      this.passwordLockoutUntil = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    }
+    await this.save();
+    return false;
+  }
 };
 
 // Ensure virtual fields are serialized

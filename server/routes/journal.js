@@ -6,7 +6,8 @@ const {
   getJournal,
   updateJournal,
   deleteJournal,
-  getJournalStats
+  getJournalStats,
+  verifyJournalPassword
 } = require('../controllers/journalController');
 const { protect } = require('../middlewares/auth');
 const { uploadMultiple } = require('../middlewares/upload');
@@ -52,7 +53,8 @@ router.post('/', uploadMultiple, journalValidation, createJournal);
 router.get('/', getJournals);
 router.get('/stats', getJournalStats);
 router.get('/:id', getJournal);
+router.post('/:id/verify-password', verifyJournalPassword);
 router.put('/:id', uploadMultiple, updateJournal);
 router.delete('/:id', deleteJournal);
 
-module.exports = router; 
+module.exports = router;

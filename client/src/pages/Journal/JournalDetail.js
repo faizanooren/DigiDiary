@@ -10,7 +10,6 @@ import {
   Tag, 
   Heart, 
   Lock, 
-  Unlock,
   Image as ImageIcon,
   Video as VideoIcon,
   FileText,
@@ -19,7 +18,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../../utils/api';
-import PasswordModal from '../../components/PasswordModal/PasswordModal';
+import { usePasswordPrompt } from '../../contexts/PasswordPromptContext';
+import useJournalPasswordStore from '../../stores/journalPasswordStore';
 import DeleteConfirmModal from '../../components/DeleteConfirmModal/DeleteConfirmModal';
 import './JournalDetail.css';
 
@@ -27,99 +27,69 @@ const JournalDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const { getPassword, removePassword } = useJournalPasswordStore();
+  const { promptForPassword } = usePasswordPrompt();
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [password, setPassword] = useState('');
-  const [unlockError, setUnlockError] = useState('');
-  const [unlocked, setUnlocked] = useState(false);
 
   // Fetch journal entry
-  const { data: journal, isLoading, error } = useQuery(
-    ['journal', id],
-    async () => {
-      const response = await api.get(`/journal/${id}`);
-      return response.data.journal;
-    },
-    {
-      staleTime: Infinity, // Keep the data fresh indefinitely once loaded
-      onError: (error) => {
-        if (error.response?.status === 401 && error.response?.data?.requiresPassword) {
-          // Handle password requirement for encrypted journals
-          setShowPasswordModal(true);
-        } else {
-          toast.error('Failed to load journal entry');
-          console.error('Error fetching journal:', error);
-        }
-      }
-    }
-  );
+  const fetchJournal = async () => {
+    const password = getPassword(id);
+    const response = await api.get(`/journal/${id}`, { params: { password } });
+    return response.data.journal;
+  };
 
-  // Delete journal mutation
-  const deleteMutation = useMutation(
-    async () => {
-      await api.delete(`/journal/${id}`);
-    },
-    {
-      onSuccess: () => {
-        toast.success('Journal entry deleted successfully');
+  const { data: journal, isLoading, error } = useQuery(['journal', id], fetchJournal, {
+    onError: (err) => {
+      // If content is locked (401), the user needs to enter a password.
+      // The prompt context should have handled this, but as a fallback, we redirect.
+      if (err.response?.status === 401) {
+        toast.error('Password required to view this journal.');
+        // Redirect back to list, the prompt will be triggered from there.
         navigate('/journal');
-        queryClient.invalidateQueries(['journals']);
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to delete journal entry');
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to load journal entry.');
+        navigate('/journal');
       }
+    },
+    retry: (failureCount, err) => {
+      // Do not retry on 401 errors, as it indicates a password is required.
+      if (err.response?.status === 401) {
+        return false;
+      }
+      // Retry for other errors up to 2 times
+      return failureCount < 2;
+    },
+  });
+
+  // Delete is now handled through password verification in PasswordPromptContext
+
+  const handleEdit = () => {
+    if (journal.isEncrypted) {
+      promptForPassword(id, 'edit');
+    } else {
+      navigate(`/journal/${id}/edit`);
     }
-  );
+  };
 
   const handleDelete = () => {
-    setShowDeleteModal(true);
+    if (journal.isEncrypted) {
+      promptForPassword(id, 'delete');
+    } else {
+      setShowDeleteModal(true);
+    }
   };
 
-  const confirmDelete = () => {
-    deleteMutation.mutate();
+  const confirmDelete = async () => {
+    try {
+      await api.delete(`/journal/${id}`);
+      toast.success('Journal entry deleted successfully');
+      queryClient.invalidateQueries('journals');
+      navigate('/journal');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete journal entry');
+    }
     setShowDeleteModal(false);
-  };
-
-  const handlePasswordSubmit = async (password) => {
-    try {
-      setIsVerifyingPassword(true);
-      const response = await api.get(`/journal/${id}?password=${encodeURIComponent(password)}`);
-      queryClient.setQueryData(['journal', id], response.data.journal);
-      setShowPasswordModal(false);
-      toast.success('Journal unlocked successfully!');
-    } catch (error) {
-      toast.error('Invalid password');
-    } finally {
-      setIsVerifyingPassword(false);
-    }
-  };
-
-  // If journal is encrypted and not unlocked, show password form
-  useEffect(() => {
-    if (journal && journal.isEncrypted && !unlocked) {
-      setShowPasswordModal(true);
-    }
-  }, [journal, unlocked]);
-
-  const handlePasswordFormSubmit = async (e) => {
-    e.preventDefault();
-    setIsVerifyingPassword(true);
-    setUnlockError('');
-    try {
-      const response = await api.get(`/journal/${id}?password=${encodeURIComponent(password)}`);
-      queryClient.setQueryData(['journal', id], {
-        ...response.data.journal,
-        unlockedPassword: password // Store the password for later use
-      });
-      setUnlocked(true);
-      setShowPasswordModal(false);
-      setPassword('');
-    } catch (error) {
-      setUnlockError('Invalid password. Please try again.');
-    } finally {
-      setIsVerifyingPassword(false);
-    }
   };
 
   const getMoodEmoji = (rating) => {
@@ -158,32 +128,6 @@ const JournalDetail = () => {
     );
   }
 
-  if (journal && journal.isEncrypted && !unlocked) {
-    return (
-      <div className="journal-protected-fallback">
-        <div style={{textAlign: 'center', marginTop: '4rem'}}>
-          <Lock size={48} style={{marginBottom: 16}}/>
-          <h2>This journal is password protected.</h2>
-          <form onSubmit={handlePasswordFormSubmit} style={{maxWidth: 320, margin: '2rem auto'}}>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Enter password"
-              style={{width: '100%', padding: '0.75em', fontSize: '1.1em', marginBottom: 8}}
-              disabled={isVerifyingPassword}
-              required
-            />
-            <button type="submit" className="btn btn-primary" disabled={isVerifyingPassword} style={{width: '100%'}}>
-              {isVerifyingPassword ? 'Unlocking...' : 'Unlock'}
-            </button>
-            {unlockError && <div style={{color: 'red', marginTop: 8}}>{unlockError}</div>}
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   if (!journal) {
     return (
       <div className="journal-detail-error">
@@ -208,16 +152,12 @@ const JournalDetail = () => {
             Back to Journals
           </Link>
           <div className="action-buttons">
-            <Link to={`/journal/${id}/edit`} className="edit-btn">
+            <button onClick={handleEdit} className="edit-btn">
               <Edit size={16} />
               Edit
-            </Link>
-            <button onClick={handleDelete} className="delete-btn" disabled={deleteMutation.isLoading}>
-              {deleteMutation.isLoading ? (
-                <Loader2 size={16} className="button-spinner" />
-              ) : (
-                <Trash2 size={16} />
-              )}
+            </button>
+            <button onClick={handleDelete} className="delete-btn">
+              <Trash2 size={16} />
               Delete
             </button>
           </div>
@@ -266,16 +206,24 @@ const JournalDetail = () => {
             <div className="media-grid">
               {journal.media.map((media, index) => (
                 <div key={index} className="media-item">
-                  {media.type.startsWith('image/') ? (
+                  {media.type === 'image' ? (
                     <img 
                       src={media.url} 
                       alt={`Attachment ${index + 1}`}
                       className="media-image"
                     />
+                  ) : media.type === 'video' ? (
+                    <video 
+                      src={media.url}
+                      controls
+                      className="media-video"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
                   ) : (
                     <div className="media-placeholder">
                       <VideoIcon size={24} />
-                      <span>Video File</span>
+                      <span>{media.filename}</span>
                     </div>
                   )}
                 </div>
@@ -304,18 +252,6 @@ const JournalDetail = () => {
         </div>
       </div>
       
-      {/* Password Modal */}
-      <PasswordModal
-        isOpen={showPasswordModal}
-        onClose={() => {
-          setShowPasswordModal(false);
-          navigate('/journal');
-        }}
-        onSubmit={handlePasswordSubmit}
-        title="Enter Journal Password"
-        description="This journal is encrypted. Please enter the password to view it."
-        isLoading={isVerifyingPassword}
-      />
       
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
@@ -325,7 +261,7 @@ const JournalDetail = () => {
         title="Delete Journal Entry"
         message="Are you sure you want to delete this journal entry? This action cannot be undone."
         itemName={journal?.title}
-        isLoading={deleteMutation.isLoading}
+        isLoading={false}
       />
     </div>
   );

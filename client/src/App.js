@@ -5,6 +5,7 @@ import { useTheme } from './contexts/ThemeContext';
 
 // Layout
 import Layout from './components/Layout/Layout';
+import { PasswordPromptProvider } from './contexts/PasswordPromptContext';
 
 // Auth Pages
 import Login from './pages/Auth/Login';
@@ -87,7 +88,9 @@ function App() {
         {/* Protected Routes */}
         <Route path="/" element={
           <ProtectedRoute>
-            <Layout />
+            <PasswordPromptProvider>
+              <Layout />
+            </PasswordPromptProvider>
           </ProtectedRoute>
         }>
           <Route index element={<Navigate to="/dashboard" replace />} />

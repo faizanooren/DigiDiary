@@ -64,3 +64,25 @@ exports.uploadProfilePicture = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit for profile pictures
   }
 }).single('profilePicture'); 
+
+// Helpers
+// Generate a URL path for a stored file relative to the public uploads directory
+exports.getFileUrl = (relativePath) => {
+  if (!relativePath) return null;
+  const normalized = relativePath.replace(/\\/g, '/');
+  return `/uploads/${normalized.replace(/^\/?uploads\/?/, '')}`;
+};
+
+// Delete a file by relative path within the uploads directory
+exports.deleteFile = (relativePath) => {
+  try {
+    if (!relativePath) return;
+    const absolutePath = path.join(uploadDir, relativePath);
+    if (fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
+    }
+  } catch (err) {
+    // Log and continue; callers handle failure gracefully
+    console.error('Error deleting file:', err.message);
+  }
+};
