@@ -4,8 +4,6 @@ import { usePasswordPrompt } from '../../contexts/PasswordPromptContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { 
-  Search, 
-  Filter, 
   Plus, 
   Calendar, 
   Tag, 
@@ -23,6 +21,7 @@ import {
 import { format } from 'date-fns';
 import api from '../../utils/api';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import EnhancedSearchBar from '../../components/EnhancedSearchBar';
 import './JournalList.css';
 
 const JournalList = () => {
@@ -30,18 +29,24 @@ const JournalList = () => {
   const queryClient = useQueryClient();
   const { promptForPassword } = usePasswordPrompt();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMood, setSelectedMood] = useState('');
-  const [selectedTags, setSelectedTags] = useState([]);
+  const [filters, setFilters] = useState({
+    fromDate: '',
+    toDate: '',
+    mood: '',
+    isEncrypted: undefined,
+    hasMedia: undefined,
+    moodRange: ''
+  });
+  const [activeQuickFilter, setActiveQuickFilter] = useState('');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
-  const [showFilters, setShowFilters] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, journal: null });
 
   // Fetch journals with filters
   const { data: journalsData, isLoading, error } = useQuery(
-    ['journals', searchTerm, selectedMood, selectedTags, sortBy, sortOrder, currentPage],
+    ['journals', searchTerm, filters, sortBy, sortOrder, currentPage],
     async () => {
       const params = new URLSearchParams({
         page: currentPage,
@@ -51,8 +56,12 @@ const JournalList = () => {
         sortOrder
       });
 
-      if (selectedMood) params.append('moodRating', selectedMood);
-      if (selectedTags.length > 0) params.append('tags', selectedTags.join(','));
+      if (filters.mood) params.append('mood', filters.mood);
+      if (filters.isEncrypted !== undefined) params.append('isEncrypted', filters.isEncrypted);
+      if (filters.hasMedia !== undefined) params.append('hasMedia', filters.hasMedia);
+      if (filters.moodRange) params.append('moodRange', filters.moodRange);
+      if (filters.fromDate) params.append('fromDate', filters.fromDate);
+      if (filters.toDate) params.append('toDate', filters.toDate);
 
       const response = await api.get(`/journal?${params}`);
       return response.data;
@@ -69,6 +78,18 @@ const JournalList = () => {
     async () => {
       const response = await api.get('/journal/stats');
       return response.data;
+    }
+  );
+
+  // Fetch filter statistics for cards
+  const { data: filterStatsData } = useQuery(
+    ['journalFilterStats'],
+    async () => {
+      const response = await api.get('/journal/filter-stats');
+      return response.data;
+    },
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutes
     }
   );
 
@@ -131,21 +152,82 @@ const JournalList = () => {
     return text.substring(0, maxLength) + '...';
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
+  const handleSearch = (searchTerm, searchFilters) => {
+    setSearchTerm(searchTerm);
+    setFilters(searchFilters);
     setCurrentPage(1);
   };
 
-  const clearFilters = () => {
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
+
+  const clearAllFilters = () => {
     setSearchTerm('');
-    setSelectedMood('');
-    setSelectedTags([]);
-    setSortBy('date');
-    setSortOrder('desc');
+    setFilters({
+      fromDate: '',
+      toDate: '',
+      mood: '',
+      isEncrypted: undefined,
+      hasMedia: undefined,
+      moodRange: ''
+    });
+    setActiveQuickFilter('');
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = searchTerm || selectedMood || selectedTags.length > 0;
+  const hasActiveFilters = searchTerm || filters.mood || filters.fromDate || filters.toDate || 
+    filters.isEncrypted !== undefined || filters.hasMedia !== undefined || filters.moodRange;
+
+  // Quick filter functions
+  const handleQuickFilter = (filterType) => {
+    // Clear other quick filters first
+    setFilters(prev => ({
+      ...prev,
+      isEncrypted: undefined,
+      hasMedia: undefined,
+      moodRange: '',
+      fromDate: '',
+      toDate: ''
+    }));
+    
+    setActiveQuickFilter(filterType);
+    setCurrentPage(1);
+    
+    switch (filterType) {
+      case 'protected':
+        setFilters(prev => ({ ...prev, isEncrypted: true }));
+        break;
+      case 'recent':
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        setFilters(prev => ({ 
+          ...prev, 
+          fromDate: sevenDaysAgo.toISOString().split('T')[0] 
+        }));
+        break;
+      case 'thisMonth':
+        const firstDayOfMonth = new Date();
+        firstDayOfMonth.setDate(1);
+        setFilters(prev => ({ 
+          ...prev, 
+          fromDate: firstDayOfMonth.toISOString().split('T')[0] 
+        }));
+        break;
+      case 'withMedia':
+        setFilters(prev => ({ ...prev, hasMedia: true }));
+        break;
+      case 'goodMood':
+        setFilters(prev => ({ ...prev, moodRange: 'good' }));
+        break;
+      case 'lowMood':
+        setFilters(prev => ({ ...prev, moodRange: 'low' }));
+        break;
+      default:
+        break;
+    }
+  };
 
   if (error) {
     return (
@@ -171,15 +253,15 @@ const JournalList = () => {
         </Link>
       </div>
 
-      {/* Stats Cards */}
-      {statsData && (
+      {/* Filter Stats Cards */}
+      {filterStatsData && (
         <div className="stats-section">
           <div className="stat-card">
             <div className="stat-icon">
               <FileText size={20} />
             </div>
             <div className="stat-content">
-              <h3>{statsData.totalEntries}</h3>
+              <h3>{filterStatsData.stats.totalEntries}</h3>
               <p>Total Entries</p>
             </div>
           </div>
@@ -188,7 +270,7 @@ const JournalList = () => {
               <Calendar size={20} />
             </div>
             <div className="stat-content">
-              <h3>{statsData.entriesThisMonth}</h3>
+              <h3>{filterStatsData.stats.thisMonthEntries}</h3>
               <p>This Month</p>
             </div>
           </div>
@@ -197,7 +279,7 @@ const JournalList = () => {
               <Image size={20} />
             </div>
             <div className="stat-content">
-              <h3>{statsData.totalMedia}</h3>
+              <h3>{filterStatsData.stats.mediaFilesEntries}</h3>
               <p>Media Files</p>
             </div>
           </div>
@@ -206,85 +288,83 @@ const JournalList = () => {
               <Lock size={20} />
             </div>
             <div className="stat-content">
-              <h3>{statsData.encryptedEntries}</h3>
+              <h3>{filterStatsData.stats.encryptedEntries}</h3>
               <p>Encrypted</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Search and Filters */}
-      <div className="filters-section">
-        <form onSubmit={handleSearch} className="search-form">
-          <div className="search-input">
-            <Search size={16} />
-            <input
-              type="text"
-              placeholder="Search journals..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="search-btn">Search</button>
-        </form>
-
-        <div className="filter-controls">
-          <button
-            className={`filter-toggle ${showFilters ? 'active' : ''}`}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter size={16} />
-            Filters
-          </button>
+      {/* Quick Filter Shortcuts */}
+      <div className="quick-filters-section">
+        <div className="quick-filters-header">
+          <h3>
+            <Tag size={20} />
+            Quick Filters
+          </h3>
           {hasActiveFilters && (
-            <button className="clear-filters" onClick={clearFilters}>
-              Clear All
+            <button className="clear-all-filters-btn" onClick={clearAllFilters}>
+              Clear All Filters
             </button>
           )}
         </div>
+        <div className="quick-filters">
+          <button 
+            className={`quick-filter-btn ${activeQuickFilter === 'protected' ? 'active' : ''}`}
+            onClick={() => handleQuickFilter('protected')}
+          >
+            <Lock size={16} />
+            Protected Journals
+          </button>
+          <button 
+            className={`quick-filter-btn ${activeQuickFilter === 'recent' ? 'active' : ''}`}
+            onClick={() => handleQuickFilter('recent')}
+          >
+            <Calendar size={16} />
+            Last 7 Days
+          </button>
+          <button 
+            className={`quick-filter-btn ${activeQuickFilter === 'thisMonth' ? 'active' : ''}`}
+            onClick={() => handleQuickFilter('thisMonth')}
+          >
+            <Calendar size={16} />
+            This Month
+          </button>
+          <button 
+            className={`quick-filter-btn ${activeQuickFilter === 'withMedia' ? 'active' : ''}`}
+            onClick={() => handleQuickFilter('withMedia')}
+          >
+            <Image size={16} />
+            With Media
+          </button>
+          <button 
+            className={`quick-filter-btn ${activeQuickFilter === 'goodMood' ? 'active' : ''}`}
+            onClick={() => handleQuickFilter('goodMood')}
+          >
+            <span className="mood-emoji">😊</span>
+            Good Mood
+          </button>
+          <button 
+            className={`quick-filter-btn ${activeQuickFilter === 'lowMood' ? 'active' : ''}`}
+            onClick={() => handleQuickFilter('lowMood')}
+          >
+            <span className="mood-emoji">😔</span>
+            Low Mood
+          </button>
+        </div>
       </div>
 
-      {/* Filter Panel */}
-      {showFilters && (
-        <div className="filter-panel">
-          <div className="filter-group">
-            <label>Mood Rating</label>
-            <select
-              value={selectedMood}
-              onChange={(e) => setSelectedMood(e.target.value)}
-            >
-              <option value="">All Moods</option>
-              <option value="1-3">Sad (1-3)</option>
-              <option value="4-6">Neutral (4-6)</option>
-              <option value="7-10">Happy (7-10)</option>
-            </select>
-          </div>
+      {/* Enhanced Search and Filters */}
+      <div className="search-section">
+        <EnhancedSearchBar
+          onSearch={handleSearch}
+          onFilterChange={handleFilterChange}
+          placeholder="Search your journals by title, content, or tags..."
+          showFilters={true}
+          initialFilters={filters}
+        />
 
-          <div className="filter-group">
-            <label>Sort By</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="date">Date</option>
-              <option value="title">Title</option>
-              <option value="moodRating">Mood</option>
-              <option value="createdAt">Created</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>Order</label>
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-            >
-              <option value="desc">Newest First</option>
-              <option value="asc">Oldest First</option>
-            </select>
-          </div>
         </div>
-      )}
 
       {/* Results Info */}
       <div className="results-info">

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Moon, Sun, LogOut, Settings, User } from 'lucide-react';
+import StreakTracker from '../StreakTracker';
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, onClose, navItems, currentPath, user }) => {
@@ -48,6 +49,11 @@ const Sidebar = ({ isOpen, onClose, navItems, currentPath, user }) => {
             ))}
           </ul>
         </nav>
+
+        {/* Compact Streak Tracker */}
+        <div className="sidebar-streak">
+          <StreakTracker isCompact={true} />
+        </div>
 
         <div className="sidebar-footer">
           <div className="sidebar-actions">

@@ -92,21 +92,44 @@
 }
 
 .edit-btn {
-  background: var(--primary-color);
+  background: var(--primary-color, #3b82f6);
   color: var(--primary-contrast-text, white);
 }
 
 .edit-btn:hover {
-  background: var(--primary-hover);
+  background: var(--primary-hover, #2563eb);
 }
 
 .delete-btn {
-  background: var(--danger-color);
+  background: var(--danger-color, #ef4444);
   color: var(--danger-contrast-text, white);
 }
 
 .delete-btn:hover:not(:disabled) {
-  background: var(--danger-hover);
+  background: var(--danger-hover, #dc2626);
+}
+
+/* Light mode specific styles for better visibility */
+[data-theme="light"] .edit-btn,
+:root .edit-btn {
+  background: #1f2937;
+  color: white;
+}
+
+[data-theme="light"] .edit-btn:hover,
+:root .edit-btn:hover {
+  background: #111827;
+}
+
+[data-theme="light"] .delete-btn,
+:root .delete-btn {
+  background: #dc2626;
+  color: white;
+}
+
+[data-theme="light"] .delete-btn:hover:not(:disabled),
+:root .delete-btn:hover:not(:disabled) {
+  background: #b91c1c;
 }
 
 .delete-btn:disabled {

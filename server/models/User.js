@@ -72,6 +72,19 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['light', 'dark'],
     default: 'light'
+  },
+  // Streak tracking fields
+  streakCount: {
+    type: Number,
+    default: 0
+  },
+  lastEntryDate: {
+    type: Date,
+    default: null
+  },
+  longestStreak: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

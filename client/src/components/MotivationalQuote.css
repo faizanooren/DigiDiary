@@ -1,0 +1,446 @@
+/* MotivationalQuote.css */
+.quote-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.quote-overlay.closing {
+  animation: fadeOut 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.quote-modal {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s ease;
+}
+
+.quote-modal.closing {
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+}
+
+/* Close Button */
+.quote-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.quote-close:hover {
+  background: #e2e8f0;
+  transform: scale(1.05);
+}
+
+.quote-close svg {
+  color: #64748b;
+  transition: color 0.3s ease;
+}
+
+.quote-close:hover svg {
+  color: #1e293b;
+}
+
+/* Content */
+.quote-content {
+  padding: 32px;
+  position: relative;
+  z-index: 5;
+}
+
+.quote-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.quote-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  border-radius: 50%;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.quote-icon::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  border-radius: 50%;
+  z-index: -1;
+  opacity: 0.2;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.1;
+  }
+}
+
+.heart-icon {
+  color: white;
+  animation: heartbeat 2s infinite;
+}
+
+@keyframes heartbeat {
+  0%, 50%, 100% {
+    transform: scale(1);
+  }
+  25%, 75% {
+    transform: scale(1.1);
+  }
+}
+
+.quote-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.quote-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* Quote Body */
+.quote-body {
+  margin-bottom: 32px;
+}
+
+.quote-text {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  color: #1e293b;
+  font-style: italic;
+  text-align: center;
+  margin: 0;
+  padding: 24px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border-left: 4px solid #f97316;
+  position: relative;
+}
+
+.quote-text::before {
+  content: '"';
+  position: absolute;
+  top: -10px;
+  left: 20px;
+  font-size: 3rem;
+  color: var(--primary-color);
+  opacity: 0.3;
+  font-family: serif;
+}
+
+.quote-text::after {
+  content: '"';
+  position: absolute;
+  bottom: -20px;
+  right: 20px;
+  font-size: 3rem;
+  color: var(--primary-color);
+  opacity: 0.3;
+  font-family: serif;
+}
+
+/* Loading State */
+.quote-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error State */
+.quote-error {
+  text-align: center;
+  padding: 40px;
+}
+
+.quote-error p {
+  color: var(--error-color);
+  margin-bottom: 16px;
+}
+
+.retry-btn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.retry-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Actions */
+.quote-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.quote-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.quote-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.quote-btn.secondary {
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+}
+
+.quote-btn.secondary:hover:not(:disabled) {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.quote-btn.primary {
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  color: white;
+  border: 1px solid transparent;
+}
+
+.quote-btn.primary:hover {
+  background: linear-gradient(135deg, #ea580c, #f97316);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* Decoration */
+.quote-decoration {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.decoration-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color)20, var(--primary-color)10);
+  animation: float 6s ease-in-out infinite;
+}
+
+.circle-1 {
+  width: 60px;
+  height: 60px;
+  top: 20px;
+  right: 20px;
+  animation-delay: 0s;
+}
+
+.circle-2 {
+  width: 40px;
+  height: 40px;
+  bottom: 40px;
+  left: 30px;
+  animation-delay: 2s;
+}
+
+.circle-3 {
+  width: 30px;
+  height: 30px;
+  top: 50%;
+  left: 20px;
+  animation-delay: 4s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-10px) rotate(180deg);
+    opacity: 0.6;
+  }
+}
+
+/* Dark Mode Adjustments */
+[data-theme="dark"] .quote-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="dark"] .quote-modal {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(148, 163, 184, 0.1);
+  backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .quote-text {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+[data-theme="dark"] .quote-close {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="dark"] .quote-close:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="dark"] .quote-btn.secondary {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="dark"] .quote-btn.secondary:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .quote-overlay {
+    padding: 16px;
+  }
+  
+  .quote-content {
+    padding: 24px;
+  }
+  
+  .quote-text {
+    font-size: 1.1rem;
+    padding: 20px;
+  }
+  
+  .quote-actions {
+    flex-direction: column;
+  }
+  
+  .quote-btn {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .quote-header h3 {
+    font-size: 1.3rem;
+  }
+}

@@ -29,11 +29,16 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Handle 401 Unauthorized - redirect to login
+    // Handle 401 Unauthorized - but exclude journal password verification
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Don't auto-logout for journal password verification errors
+      const isPasswordVerification = error.config?.url?.includes('/verify-password');
+      
+      if (!isPasswordVerification) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     
     // Handle 403 Forbidden

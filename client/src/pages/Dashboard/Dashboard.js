@@ -4,11 +4,15 @@ import { useQuery } from 'react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Calendar, TrendingUp, BookOpen, Clock, ListTodo, Star } from 'lucide-react';
 import api from '../../utils/api';
+import StreakTracker from '../../components/StreakTracker';
+import MotivationalQuote from '../../components/MotivationalQuote';
 import './Dashboard.css';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [greeting, setGreeting] = useState('');
+  const [showMotivationalQuote, setShowMotivationalQuote] = useState(false);
+  const [motivationalQuote, setMotivationalQuote] = useState('');
 
   // Fetch recent journals
   const { data: journalsData, isLoading: journalsLoading } = useQuery(
@@ -37,6 +41,23 @@ const Dashboard = () => {
     } else {
       setGreeting('Good evening');
     }
+  }, []);
+
+  // Check for motivational quote on dashboard load
+  useEffect(() => {
+    const checkForMotivationalQuote = async () => {
+      try {
+        const response = await api.get('/quotes/check');
+        if (response.data.success && response.data.needsQuote) {
+          setMotivationalQuote(response.data.quote);
+          setShowMotivationalQuote(true);
+        }
+      } catch (error) {
+        console.error('Error checking for motivational quote:', error);
+      }
+    };
+
+    checkForMotivationalQuote();
   }, []);
 
   const getMoodEmoji = (rating) => {
@@ -116,6 +137,11 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-content">
+        {/* Streak Tracker */}
+        <div className="streak-section">
+          <StreakTracker />
+        </div>
+
         {/* Stats Cards */}
         <div className="stats-section">
           <h2>Your Journey Stats</h2>
@@ -217,6 +243,13 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Motivational Quote Modal */}
+      <MotivationalQuote 
+        isVisible={showMotivationalQuote}
+        onClose={() => setShowMotivationalQuote(false)}
+        initialQuote={motivationalQuote}
+      />
     </div>
   );
 };

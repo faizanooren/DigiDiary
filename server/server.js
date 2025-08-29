@@ -11,6 +11,9 @@ const journalRoutes = require('./routes/journal');
 const bucketListRoutes = require('./routes/bucketList');
 const todoListRoutes = require('./routes/todoList');
 const insightsRoutes = require('./routes/insights');
+const streakRoutes = require('./routes/streak');
+const quotesRoutes = require('./routes/quotes');
+const globalSearchRoutes = require('./routes/globalSearch');
 
 const app = express();
 
@@ -65,6 +68,9 @@ app.use('/api/journal', journalRoutes);
 app.use('/api/bucket-list', bucketListRoutes);
 app.use('/api/todo-list', todoListRoutes);
 app.use('/api/insights', insightsRoutes);
+app.use('/api/streak', streakRoutes);
+app.use('/api/quotes', quotesRoutes);
+app.use('/api/search', globalSearchRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

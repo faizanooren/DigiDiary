@@ -1,5 +1,6 @@
 const Journal = require('../models/Journal');
 const { validationResult } = require('express-validator');
+const { updateStreak } = require('./streakController');
 
 // @desc    Create new journal entry
 // @route   POST /api/journal
@@ -53,6 +54,9 @@ exports.createJournal = async (req, res) => {
 
     await journal.populate('user', 'fullName surname');
 
+    // Update user streak after successful journal creation
+    await updateStreak(req.user.id);
+
     res.status(201).json({
       success: true,
       message: 'Journal entry created successfully',
@@ -98,8 +102,44 @@ exports.getJournals = async (req, res) => {
       query.moodRating = parseInt(req.query.mood);
     }
 
-    // Add date filter
-    if (req.query.date) {
+    // Add encryption filter (for Protected Journals shortcut)
+    if (req.query.isEncrypted !== undefined) {
+      query.isEncrypted = req.query.isEncrypted === 'true';
+    }
+
+    // Add media filter (for With Media shortcut)
+    if (req.query.hasMedia !== undefined) {
+      if (req.query.hasMedia === 'true') {
+        query['media.0'] = { $exists: true }; // Has at least one media item
+      } else {
+        query.media = { $size: 0 }; // No media items
+      }
+    }
+
+    // Add mood range filters (for Good Mood / Low Mood shortcuts)
+    if (req.query.moodRange) {
+      if (req.query.moodRange === 'good') {
+        query.moodRating = { $gte: 4 }; // 4-5 rating
+      } else if (req.query.moodRange === 'low') {
+        query.moodRating = { $lte: 2 }; // 1-2 rating
+      }
+    }
+
+    // Add date range filter
+    if (req.query.fromDate || req.query.toDate) {
+      query.createdAt = {};
+      if (req.query.fromDate) {
+        query.createdAt.$gte = new Date(req.query.fromDate);
+      }
+      if (req.query.toDate) {
+        const toDate = new Date(req.query.toDate);
+        toDate.setHours(23, 59, 59, 999); // End of day
+        query.createdAt.$lte = toDate;
+      }
+    }
+
+    // Add single date filter (for backward compatibility)
+    if (req.query.date && !req.query.fromDate && !req.query.toDate) {
       const date = new Date(req.query.date);
       const nextDay = new Date(date);
       nextDay.setDate(nextDay.getDate() + 1);
@@ -520,6 +560,59 @@ exports.deleteJournal = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting journal entry',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+// @desc    Get journal filter statistics for cards
+// @route   GET /api/journal/filter-stats
+// @access  Private
+exports.getJournalFilterStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Get total entries
+    const totalEntries = await Journal.countDocuments({ user: userId });
+
+    // Get this month's entries
+    const thisMonthEntries = await Journal.countDocuments({
+      user: userId,
+      createdAt: {
+        $gte: startOfMonth,
+        $lte: endOfMonth
+      }
+    });
+
+    // Get entries with media files
+    const mediaFilesEntries = await Journal.countDocuments({
+      user: userId,
+      'media.0': { $exists: true }
+    });
+
+    // Get encrypted entries
+    const encryptedEntries = await Journal.countDocuments({
+      user: userId,
+      isEncrypted: true
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalEntries,
+        thisMonthEntries,
+        mediaFilesEntries,
+        encryptedEntries
+      }
+    });
+  } catch (error) {
+    console.error('Get journal filter stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching journal filter statistics',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }

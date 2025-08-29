@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Search, Bell, Plus, Sun, Moon, User } from 'lucide-react';
+import { Menu, Search, Plus, Sun, Moon, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import GlobalSearchResults from '../GlobalSearchResults';
 import './Header.css';
 
 const Header = ({ onMenuClick, user, currentPath }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user: authUser } = useAuth();
@@ -14,8 +16,24 @@ const Header = ({ onMenuClick, user, currentPath }) => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/journal?search=${encodeURIComponent(searchQuery.trim())}`);
+    if (searchQuery.trim() && searchQuery.trim().length >= 2) {
+      setShowGlobalSearch(true);
+    }
+  };
+
+  const handleCloseGlobalSearch = () => {
+    setShowGlobalSearch(false);
+  };
+
+  const handleSearchInputChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    // Auto-trigger search for queries >= 2 characters
+    if (value.trim().length >= 2) {
+      setShowGlobalSearch(true);
+    } else {
+      setShowGlobalSearch(false);
     }
   };
 
@@ -50,9 +68,9 @@ const Header = ({ onMenuClick, user, currentPath }) => {
             <Search size={20} className="search-icon" />
             <input
               type="text"
-              placeholder="Search journals, tags, or content..."
+              placeholder="Search across journals, todos, bucket list..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchInputChange}
               className="search-input"
             />
           </div>
@@ -68,9 +86,7 @@ const Header = ({ onMenuClick, user, currentPath }) => {
         )}
         
         <div className="header-actions">
-          <button className="notification-btn">
-            <Bell size={20} />
-          </button>
+
           
           <button className="theme-toggle" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
@@ -93,8 +109,15 @@ const Header = ({ onMenuClick, user, currentPath }) => {
           </div>
         </div>
       </div>
+      
+      {/* Global Search Results */}
+      <GlobalSearchResults 
+        query={searchQuery}
+        isVisible={showGlobalSearch}
+        onClose={handleCloseGlobalSearch}
+      />
     </header>
   );
 };
 
-export default Header; 
+export default Header;

@@ -4,7 +4,8 @@
   margin: 0 auto;
 }
 
-.dashboard-header {
+/* Streak Section */
+.streak-section {
   margin-bottom: var(--spacing-8);
 }
 

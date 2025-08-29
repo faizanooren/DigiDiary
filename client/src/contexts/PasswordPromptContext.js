@@ -50,8 +50,15 @@ export const PasswordPromptProvider = ({ children }) => {
         const errorData = error.response?.data;
         if (errorData?.attemptsExceeded) {
           toast.error(errorData.message, { duration: 6000 });
+          // Log out user after 3 failed attempts
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+          }, 3000); // Give user time to read the message
         } else if (errorData?.remainingAttempts !== undefined) {
           toast.error(errorData.message, { duration: 4000 });
+          // Keep the modal open for retry
         } else {
           toast.error(errorData?.message || 'Invalid password.');
         }
